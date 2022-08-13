@@ -3,6 +3,7 @@
 #include <DS1307RTC.h>
 
 #define LED_PIN 7
+#define STATUS_PIN 9
 #define BUTTON_PIN 5
 
 /*INTERPOLATION ALGO
@@ -21,9 +22,9 @@ int pulseLength = 1000;
 
 bool SetTime = false;
 bool doDebug = true;
-bool alarmShown = false;
-bool alarmSilenced = false;
-bool resetDone = false;
+
+int lastHour = -1;
+bool alarm = false;
 
 void setup() {
   Serial.begin(9600);
@@ -49,21 +50,21 @@ bool led_lit = false;
 void pulseCycle(){
   if(millis() > next){
     next = (long)(millis() + pulseLength);
-    if(!alarmSilenced){
-      led_lit = !led_lit;
-    }
-    else{
-      led_lit = false;
-    }
+    led_lit = !led_lit;
     if(doDebug)
       debug();
   }
 
-  if(alarmShown){
-    if(led_lit)
-      digitalWrite(LED_PIN, HIGH);
+  if(alarm){
+      //digitalWrite(STATUS_PIN, LOW);
+      if(led_lit)
+        digitalWrite(LED_PIN, HIGH);
     else
-      digitalWrite(LED_PIN, LOW);
+        digitalWrite(LED_PIN, LOW);
+  }
+  else{
+    digitalWrite(LED_PIN, LOW);
+    digitalWrite(STATUS_PIN, HIGH);
   }
 }
 
@@ -80,8 +81,8 @@ void debug(){
 }
 
 void getInput(){
-  if(digitalRead(BUTTON_PIN) == 0 && alarmShown && !alarmSilenced){
-    alarmSilenced = true;
+  if(digitalRead(BUTTON_PIN) == 0 && alarm){
+    alarm = false;
     Serial.println("ALARM SILENCED");
   }
 }
@@ -90,28 +91,14 @@ void checkTime()
 {
   if(RTC.read(tm))
   {
-    if(tm.Hour == 7 && !resetDone){
-      alarmShown = false;
-      alarmSilenced = false;
-      resetDone = true;
-      Serial.println("IT IS 7 AM");
-    }
-
-    if(tm.Hour == 8 && resetDone){
-      alarmShown = true;
-      resetDone = false;
-      Serial.println("IT IS 8 AM");
+    if(tm.Hour != lastHour){
+      lastHour = tm.Hour;
+      if(tm.Hour == 8){
+        alarm = true;
+      }
     }
   }
 }
-
-
-
-
-
-
-
-
 
 //BLACKBOXED
 void doSetTime(){
